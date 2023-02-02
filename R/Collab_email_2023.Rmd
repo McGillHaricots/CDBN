@@ -1,0 +1,154 @@
+---
+title: "CDBN Info Dataframes"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(cowplot)
+```
+
+# Dataset Information
+
+```{r}
+write_csv(locations, file = here("data", "locations.csv"))
+write_csv(metadata, file = here("data", "metadata.csv"))
+write_csv(phenotypes, file = here("data", "phenotypes.csv"))
+```
+
+Location can be joined with the phenotype dataframe using the "Location_code" key, e.g.:
+```{r}
+phenotypes %>%
+  full_join(locations, by = "Location_code")
+```
+If the other columns in `locations`, `metadata`, or `phenotypes` need explanation, please contact Alice.
+
+Columns in `metadata` that may be unclear: 
+
+    * Det_scr is determinacy score, 1 is determinate and 2 is indeterminate.
+    * GHmode is the most common growth habit score, 1: determinate, 2: upright indeterminate, 3: prostrate indeterminate.
+    * Earliest_Year_CDBN gives you a rough idea of the age of the entry.
+    
+Columns in `phenotypes` that may be unclear:
+    
+     * SY: seed yield (kg/ha)
+     * GH: growth habit, 1: determinate, 2: upright indeterminate, 3: prostrate indeterminate.
+     * SW: 100 seed weight
+     * DM: days to maturity
+     * DF: days to flowering
+     * SF: seed fill duration (DM - DF)
+     * LG: lodging score.
+     * HI: harvest index
+     * PH: plant height
+     * BM: biomass
+The units for all of these phenotypes should be in the Genetics paper, as well as more detail about how they were generated. There are more phenotypes in the Genetics paper but these have the most datapoints, so we thought they were best suited for additional site*year analyses.
+
+
+The metadata can be joined to the phenotype dataframe using the following four columns: Taxa, Seq_ID, CDBN_ID, and Race. Taxa is a combination of Seq_ID and CDBN_ID. 
+```{r}
+phenotypes %>%
+  left_join(metadata, by = c("Taxa", "CDBN_ID", "Seq_ID", "Race"))
+```
+The phenotype dataframe can be joined to the SNPs using the column `Taxa`. 
+
+The SNP data can be found on the UT Dataverse:
+https://dataverse.tdl.org/dataset.xhtml?persistentId=doi:10.18738/T8/RTBTIR
+
+https://dataverse.tdl.org/dataverse/CDBNgenomics
+
+
+# Email Questions
+
+```{r}
+locations %>%
+  filter(grepl("2", Location_code))
+
+phenotypes %>%
+  group_by(Year, Location_code) %>%
+  tally() %>% tally(name = "Locations") %>%
+  write_csv(here("data", "Locations_per_year.csv"))
+
+phenotypes %>%
+  group_by(Year, Taxa) %>%
+  tally %>% tally(name = "Taxa with marker info") %>%
+  write_csv(here("data", "Taxa_with_marker_info_per_year.csv"))
+
+phenotypes %>%
+  group_by(Year, Taxa) %>%
+  tally %>% tally(name = "Taxa") %>%
+  summarise(mean = mean(Taxa),
+            var = sqrt(var(Taxa)))
+
+phenotypes %>%
+  group_by(Year, Location_code, Taxa) %>%
+  tally %>% tally(name = "Number of Entries") %>%
+  write_csv(here("data", "Number_of_entries_per_environment.csv"))
+
+phenotypes %>%
+  group_by(Year, Location_code, Taxa) %>%
+  tally %>% tally(name = "Entries")  %>%
+  ungroup() %>%
+  summarise(mean = mean(Entries),
+            var = sqrt(var(Entries)))
+
+phenotypes %>%
+  group_by(Taxa, Location_code, Year) %>%
+  tally() %>% tally() %>% summarise(Environments = sum(n)) %>%
+  write_csv(here("data", "Number_of_environments_per_entry.csv"))
+
+phenotypes %>%
+  group_by(Taxa, Location_code, Year) %>%
+  tally() %>% tally() %>% summarise(Environments = sum(n)) %>%
+  ggplot(aes(x = Environments)) + 
+  geom_histogram()
+save_plot(filename = here("data", "Environments_per_entry.png"), plot = last_plot())
+
+phenotypes %>%
+  group_by(Taxa, Location_code, Year) %>%
+  tally() %>% tally() %>% summarise(Environments = sum(n)) %>%
+  ungroup() %>%
+  summarise(mean = mean(Environments),
+            var = sqrt(var(Environments)),
+            min = min(Environments),
+            max = max(Environments))
+```
+
+
+1. Entries in total: 544. See also the Genotypes_in_v2.0_CDBN_Phenotypes.csv for their names.
+
+
+2. How many entries have pedigree/genomic data available? For marker data, I hope you talked with Phil McClean. Refer to Filter_150Ct_MAF5per_CDBN_001_359_parents_fillin_names_QC_impute.fam (a fam file) for the CDBN entries and pedigree parents I have genotype data for. (The *.log file of the same name has information about how the marker data was created & filtered, which may or may not be useful to you). The file called PedigreeMatrix.csv is the result of an effort I made back in ~2017 (based on pedigree info you shared) to collect all available pedigree information for the CDBN and make a kinship matrix. I believe it has ~101 CDBN entries in it. I can dig up more details on its creation if it's of use to you.
+
+ 
+
+3. How many locations? I have 73 locations, 6 have 2 trials in that year. I can share a Github repository or a csv with all the Location data & metadata if it's useful.
+
+ 
+
+4. How many locations per year? Figure 1 is a good source for this. The Locations_per_year.csv I attached also has a breakdown of the locations used each year.
+
+ 
+
+5. How many years in total
+
+Jeff White digitized CDBN data (that Juan shared, I believe) from 1981-2015. CDBN reports exist for 2016-2022, clearly, but they haven't been digitized and added to this particular dataset yet. I'd be happy to do that if it is helpful but it may take me some time.
+
+6. How many entries per year?
+
+Keep in mind that this is just for entries that I have with marker information, but the Taxa_with_marker_info_per_year.csv has that info for each year. The average is 25.7 entries per year and the standard deviation is 6.2.
+
+
+7.    How many years are entries tested in? 1-24 with average of 2 years
+
+That's correct. There are 11 check varieties that were tested in most year and environment combinations; the remainder are usually tested 1-5 years, and 2 on average.
+
+8. How many environments in total? I have 637 year by location combinations in this dataset.
+
+9. How many entries per environment? 23.3 on average (standard deviation 8.6). The Number_of_entries_per_environment.csv has more details.
+
+
+10. How many entries in common between environments, locations and years ( what is the range and average)?
+
+This is IIRC basically a bimodal distribution (see the attached figure Environments_per_entry.png). The 11 check varieties are present almost everywhere. Every other entry is present much less. The average is 42.9 environments, standard deviation 46.6, range 1-338 environments. The Number_of_environments_per_entry.csv has more details.
